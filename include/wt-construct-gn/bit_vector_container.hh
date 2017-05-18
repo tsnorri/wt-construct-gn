@@ -16,7 +16,6 @@
  * along with wt-construct-gn.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #ifndef WT_CONSTRUCT_BIT_VECTOR_CONTAINER_HH
 #define WT_CONSTRUCT_BIT_VECTOR_CONTAINER_HH
 
