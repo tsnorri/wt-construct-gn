@@ -1,3 +1,9 @@
 [submodule "lib/sdsl-lite"]
 	path = lib/sdsl
 	url = https://github.com/tsnorri/sdsl-lite.git
+[submodule "lib/libdispatch"]
+	path = lib/libdispatch
+	url = https://github.com/nickhutchinson/libdispatch
+[submodule "lib/libpwq"]
+	path = lib/libpwq
+	url = https://github.com/mheily/libpwq.git
