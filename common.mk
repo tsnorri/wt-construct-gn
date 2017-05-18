@@ -7,8 +7,8 @@ OPT_FLAGS		= -O2 -g
 
 CFLAGS			= -std=c99   $(OPT_FLAGS) $(WARNING_FLAGS)
 CXXFLAGS		= -std=c++1z $(OPT_FLAGS) $(WARNING_FLAGS)
-CPPFLAGS		= -DHAVE_CONFIG_H -I../include -I../lib/sdsl/build/include -I../lib/sdsl/build/external/libdivsufsort/include $(BOOST_INCLUDE)
-LDFLAGS			= $(LIBDISPATCH_LIBS) $(BOOST_LIBS)
+CPPFLAGS		= -DHAVE_CONFIG_H -I../include -I../lib/sdsl/build/include -I../lib/sdsl/build/external/libdivsufsort/include $(BOOST_INCLUDE) $(LIBDISPATCH_INCLUDE) $(LIBPWQ_INCLUDE)
+LDFLAGS			=
 
 
 %.o: %.cc

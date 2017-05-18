@@ -11,4 +11,4 @@ clean:
 main.c: cmdline.c
 
 construct-wt: $(OBJECTS)
-	$(CXX) -o $@ $(OBJECTS) $(LDFLAGS) ../lib/sdsl/build/lib/libsdsl.a 
+	$(CXX) -o $@ $(OBJECTS) $(LDFLAGS) ../lib/sdsl/build/lib/libsdsl.a $(LIBDISPATCH_LIBS) $(BOOST_LIBS)
