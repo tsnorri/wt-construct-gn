@@ -1,0 +1,26 @@
+#  Copyright (C) 2017 Tuukka Norri
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see http://www.gnu.org/licenses/ .
+
+package "wt-construct-gn"
+version "0.1"
+purpose "Construct a balanced Wavelet tree"
+usage "construct-wt -i input …"
+
+defgroup "Construction Algorithm" groupdesc = "Wavelet tree construction algorithm"													required
+groupoption	"sdsl"			S	"Use the default algorithm from SDSL"							group = "Construction Algorithm"
+groupoption	"bitparallel"	B	"Use a multithreaded bitparallel algorithm"						group = "Construction Algorithm"
+
+section " Other options"
+option		"input-file"	i	"Input file"											string	typestr = "filename"				required
+option		"output-file"	o	"Write the resulting Wavelet tree to the given file"	string	typestr = "filename"				optional
+option		"tau"			-	"Specify τ for use in the bitparallel algorithm"		int		dependon = "bitparallel"			optional
+option		"no-mt"			-	"Use only one thread in the bitparallel algorithm"				dependon = "bitparallel"			optional
