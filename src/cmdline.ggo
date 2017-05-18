@@ -13,7 +13,7 @@
 package "wt-construct-gn"
 version "0.1"
 purpose "Construct a balanced Wavelet tree"
-usage "construct-wt -i input …"
+usage "construct-wt -i input [ … ]"
 
 defgroup "Construction Algorithm" groupdesc = "Wavelet tree construction algorithm"													required
 groupoption	"sdsl"			S	"Use the default algorithm from SDSL"							group = "Construction Algorithm"
