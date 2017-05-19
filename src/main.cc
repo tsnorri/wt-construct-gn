@@ -105,7 +105,9 @@ namespace {
 		
 		virtual void construct()
 		{
-			sdsl::int_vector_buffer <wtcgn::wt_type_gn::alphabet_category::WIDTH> text_buf(m_input_file_name, std::ios::in);
+			sdsl::int_vector_buffer <t_wt::alphabet_category::WIDTH>
+			text_buf(m_input_file_name, std::ios::in, 1024 * 1024, t_wt::alphabet_category::WIDTH, true);
+
 			m_wt.reset(new t_wt(text_buf, text_buf.size(), this));
 		}
 		
@@ -145,19 +147,24 @@ int main (int argc, char **argv)
 	
 	if (args_info.sdsl_given)
 	{
-		wtcgn::wt_type_sdsl wt;
 		wtcgn::timer timer;
 
 		wtcgn::file_ostream output_stream;
 		if (args_info.output_file_given)
 			wtcgn::open_file_for_writing(args_info.output_file_arg, output_stream, false);
 		
+		sdsl::int_vector_buffer <wtcgn::wt_type_sdsl::alphabet_category::WIDTH>
+		text_buf(args_info.input_file_arg, std::ios::in, 1024 * 1024, wtcgn::wt_type_sdsl::alphabet_category::WIDTH, true);
+
 		std::cerr << "Constructing the Wavelet tree…" << std::endl;
-		sdsl::construct(wt, args_info.input_file_arg);
+		wtcgn::wt_type_sdsl wt(text_buf, text_buf.size());
 		stop_timer(timer);
 		
 		if (args_info.output_file_given)
+		{
+			assert(output_stream.good());
 			write_wt_to_file(wt, output_stream);
+		}
 	}
 	else if (args_info.bitparallel_given)
 	{
