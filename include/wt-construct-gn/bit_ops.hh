@@ -41,6 +41,7 @@ namespace wtcgn {
 	}
 	
 	
+#ifndef HAVE_PEXT
 	template <typename t_type>
 	inline t_type extract_bits(t_type const word, t_type mask)
 	{
@@ -56,9 +57,7 @@ namespace wtcgn {
 		return res;
 	}
 	
-	
-#ifdef HAVE_PEXT
-	template <>
+#else
 	inline uint32_t extract_bits(uint32_t const word, uint32_t const mask)
 	{
 		uint32_t dst{0};
@@ -71,7 +70,6 @@ namespace wtcgn {
 	}
 
 
-	template <>
 	inline uint64_t extract_bits(uint64_t const word, uint64_t const mask)
 	{
 		uint64_t dst{0};
@@ -227,7 +225,7 @@ namespace wtcgn {
 		if (p1 == CHAR_BIT * sizeof(val) - p2 - 1)
 			return p1;
 		
-		return 1 + p1;
+		return CHAR_BIT * sizeof(val) - p1;
 	}
 }
 
