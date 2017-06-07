@@ -18,7 +18,7 @@
 
 #include "cmdline.h"
 #include <sdsl/io.hpp>
-#include <wt-construct-gn/construct_wt.hh>
+#include <wt-construct-gn/construct_wt_2.hh>
 #include <wt-construct-gn/file_handling.hh>
 #include <wt-construct-gn/timer.hh>
 #include <wt-construct-gn/types.hh>
@@ -55,6 +55,7 @@ namespace {
 		virtual void open_output_file(char const *fname) = 0;
 		virtual wtcgn::timer &wt_construction_timer() = 0;
 		virtual void set_tau(std::size_t const tau) = 0;
+		virtual void set_print_wt(bool flag) = 0;
 	};
 
 	
@@ -70,6 +71,7 @@ namespace {
 		wtcgn::file_ostream		m_output_stream;
 		std::size_t				m_tau{0};
 		bool					m_output_wt{false};
+		bool					m_print_wt{false};
 		
 	public:
 		construct_ctx()
@@ -88,6 +90,7 @@ namespace {
 		
 		virtual wtcgn::timer &wt_construction_timer() { return m_wt_construction_timer; }
 		virtual void set_tau(std::size_t const tau) { m_tau = tau; }
+		virtual void set_print_wt(bool const flag) { m_print_wt = flag; }
 		
 		
 		virtual void set_input_file_name(char const *fname)
@@ -124,6 +127,13 @@ namespace {
 		{
 			stop_timer(m_wt_construction_timer);
 			
+			if (m_print_wt)
+			{
+				for (std::size_t i(0); i < m_wt->size(); ++i)
+					std::cout << (*m_wt)[i];
+				std::cout << std::endl;
+			}
+			
 			if (m_output_wt)
 				write_wt_to_file(*m_wt, m_output_stream);
 			
@@ -144,6 +154,12 @@ int main (int argc, char **argv)
 	
 	std::ios_base::sync_with_stdio(false);	// Don't use C style IO after calling cmdline_parser.
 	std::cin.tie(nullptr);					// We don't require any input from the user.
+	
+	if (args_info.sleep_given)
+	{
+		std::cerr << "Waiting for " << args_info.sleep_arg << " seconds…" << std::endl;
+		sleep(args_info.sleep_arg);
+	}
 	
 	if (args_info.sdsl_given)
 	{
@@ -168,9 +184,29 @@ int main (int argc, char **argv)
 	}
 	else if (args_info.bitparallel_given)
 	{
+		{
+			construct_ctx <wtcgn::wt_type_gn> ctx;
+			ctx.set_input_file_name(args_info.input_file_arg);
+			if (args_info.tau_given)
+			{
+				auto const tau(args_info.tau_arg);
+				if (! (0 < tau))
+				{
+					std::cerr << "Tau must be positive." << std::endl;
+					exit(EXIT_FAILURE);
+				}
+				ctx.set_tau(tau);
+				if (args_info.print_wt_given)
+					ctx.set_print_wt(true);
+				
+				ctx.construct();
+				return 0;
+			}
+		}
+		
 		construct_ctx_base *ctx{nullptr};
 		
-		if (args_info.no_mt_given)
+		if (true || args_info.no_mt_given)
 			ctx = new construct_ctx <wtcgn::wt_type_gn>();
 		else
 		{
@@ -197,6 +233,9 @@ int main (int argc, char **argv)
 			}
 			ctx->set_tau(tau);
 		}
+		
+		if (args_info.print_wt_given)
+			ctx->set_print_wt(true);
 		
 		// Construct the WT.
 		std::cerr << "Constructing the Wavelet tree…" << std::endl;

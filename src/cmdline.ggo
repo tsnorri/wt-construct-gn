@@ -21,6 +21,8 @@ groupoption	"bitparallel"	B	"Use a multithreaded bitparallel algorithm"						gro
 
 section " Other options"
 option		"input-file"	i	"Input file"											string	typestr = "filename"				required
+option		"print-wt"		p	"Output the text from the Wavelet tree to stdout"		flag													off
 option		"output-file"	o	"Write the resulting Wavelet tree to the given file"	string	typestr = "filename"				optional
 option		"tau"			-	"Specify τ for use in the bitparallel algorithm"		int		dependon = "bitparallel"			optional
-option		"no-mt"			-	"Use only one thread in the bitparallel algorithm"				dependon = "bitparallel"			optional
+option		"no-mt"			-	"Use only one thread in the bitparallel algorithm"				dependon = "bitparallel"			optional	hidden
+option		"sleep"			-	"Wait before running the main program"					int		typestr = "seconds"					optional
