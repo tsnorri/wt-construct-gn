@@ -109,7 +109,7 @@ namespace wtcgn {
 		}
 	
 		// Append a value to the list.
-		void append(t_word const val)
+		inline bool append(t_word const val)
 		{
 			auto const vec_idx(m_idx / m_items_per_word);
 		
@@ -126,9 +126,12 @@ namespace wtcgn {
 			ref |= shifted_val;
 		
 			++m_idx;
+			
+			// Check if a word was filled.
+			return (m_idx / m_items_per_word != vec_idx);
 		}
 	
-		t_word value(std::size_t idx) const
+		inline t_word value(std::size_t idx) const
 		{
 			auto const vec_idx(idx / m_items_per_word);
 			t_word retval(m_vec[vec_idx]);
