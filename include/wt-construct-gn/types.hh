@@ -19,7 +19,7 @@
 #ifndef WT_CONSTRUCT_GN_TYPES_HH
 #define WT_CONSTRUCT_GN_TYPES_HH
 
-#include <wt-construct-gn/construct_wt.hh>
+#include <wt-construct-gn/construct_wt_2.hh>
 
 
 namespace wtcgn {
