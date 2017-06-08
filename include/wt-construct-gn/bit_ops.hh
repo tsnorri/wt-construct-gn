@@ -62,7 +62,7 @@ namespace wtcgn {
 	{
 		uint32_t dst{0};
 		asm (
-			"pext %2, %1, %0"
+			"pextl %2, %1, %0"
 			: "=r" (dst)
 			: "r" (word), "r" (mask)
 		);
@@ -74,13 +74,37 @@ namespace wtcgn {
 	{
 		uint64_t dst{0};
 		asm (
-			"pext %2, %1, %0"
+			"pextq %2, %1, %0"
 			: "=r" (dst)
 			: "r" (word), "r" (mask)
 		);
 		return dst;
 	}
 #endif
+	
+	
+	inline uint32_t and_not(uint32_t const a, uint32_t const b)
+	{
+		uint32_t dst{0};
+		asm (
+			"andnl %2, %1, %0"
+			: "=r" (dst)
+			: "r" (a), "r" (b)
+		);
+		return dst;
+	}
+	
+	
+	inline uint64_t and_not(uint64_t const a, uint64_t const b)
+	{
+		uint64_t dst{0};
+		asm (
+			"andnq %2, %1, %0"
+			: "=r" (dst)
+			: "r" (a), "r" (b)
+		);
+		return dst;
+	}
 	
 	
 	inline uint16_t count_set_bits(uint16_t const word)
