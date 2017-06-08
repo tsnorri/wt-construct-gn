@@ -19,8 +19,11 @@
 #ifndef WT_CONSTRUCT_GN_CONSTRUCT_WT_2_HH
 #define WT_CONSTRUCT_GN_CONSTRUCT_WT_2_HH
 
-#define INLINE_CREATION __attribute__ ((noinline))
-//#define INLINE_CREATION inline
+//#define INLINE_CREATION __attribute__ ((noinline))
+#define INLINE_CREATION inline
+
+#define UNROLL_LOOPS __attribute__((optimize("unroll-loops")))
+
 
 #include <iostream>
 #include <sdsl/int_vector_buffer.hpp>
@@ -31,6 +34,7 @@
 #include <vector>
 #include <wt-construct-gn/bit_ops.hh>
 #include <wt-construct-gn/bit_vector_container.hh>
+#include <wt-construct-gn/create_masks.hh>
 #include <wt-construct-gn/dispatch_fn.hh>
 #include <wt-construct-gn/movable_atomic.hh>
 #include <wt-construct-gn/packed_list.hh>
@@ -145,7 +149,7 @@ namespace wtcgn
 		std::size_t const bit_count
 	)
 	{
-#if 0
+#if 1
 		if (pos <= 67 && 67 <= pos + bit_count)
 			std::cerr << "extracted: " << extracted << std::endl;
 #endif
@@ -184,6 +188,7 @@ namespace wtcgn
 	protected:
 		typedef sdsl::int_vector <TREE_NODE_BIT>			shortcut_vec_type;
 		typedef typename t_wt::tree_strat_type::node_type	tree_node_type;
+		typedef create_masks <t_word>						create_masks_type;
 		
 		struct node
 		{
@@ -202,14 +207,16 @@ namespace wtcgn
 		};
 		
 	protected:
-		t_wt								*m_wt{nullptr};
-		construct_wt_gn_delegate <t_wt>		*m_delegate{nullptr};
-		std::vector <shortcut_vec_type>		m_node_paths;
-		t_word								m_tau_mask{};
-		sdsl::bit_vector					m_target_bv;
-		item_masks <t_word>					m_small_node_masks;
-		std::size_t							m_tau{};
-		std::size_t							m_sigma_bits{};
+		t_wt									*m_wt{nullptr};
+		construct_wt_gn_delegate <t_wt>			*m_delegate{nullptr};
+		std::vector <shortcut_vec_type>			m_node_paths;
+		t_word									m_tau_mask{};
+		sdsl::bit_vector						m_target_bv;
+		typename create_masks_type::vector_type	m_item_masks;
+		typename create_masks_type::vector_type	m_tau_masks;
+		typename create_masks_type::vector_type	m_tau_values;
+		std::size_t								m_tau{};
+		std::size_t								m_sigma_bits{};
 		
 	protected:
 		construct_wt_gn(t_wt &wt, construct_wt_gn_delegate <t_wt> *delegate):
@@ -220,23 +227,27 @@ namespace wtcgn
 		{
 			m_tau_mask >>= (T_WORD_BIT - m_tau);
 			print_tree(m_wt->m_tree.root(), 0);
+			
+			std::size_t i(0);
+			for (auto const path : m_wt->m_tree.m_path)
+				std::cerr << "[" << i++ << "]: " << (path & 0xFFFFFFFFFFFFFF) << " (" << (path >> 56) << ")" << std::endl;
 		}
 		
 		
 		void print_tree(typename t_wt::tree_strat_type::node_type const node, std::size_t const level)
 		{
-#if 0
+#if 1
 			auto const &val(m_wt->m_tree.m_nodes[node]);
 			for (std::size_t i(0); i < level; ++i)
 					std::cerr << "    ";
 			std::cerr << "[" << node << "] bv_pos: " << val.bv_pos << " bv_pos_rank: " << val.bv_pos_rank << " size: " << m_wt->m_tree.size(node) << std::endl;
-#endif
 			
 			if (!m_wt->m_tree.is_leaf(node))
 			{
 				print_tree(m_wt->m_tree.child(node, 0), 1 + level);
 				print_tree(m_wt->m_tree.child(node, 1), 1 + level);
 			}
+#endif
 		}
 		
 		
@@ -309,7 +320,8 @@ namespace wtcgn
 		}
 		
 		
-		INLINE_CREATION void create_small_nodes(
+		INLINE_CREATION
+		void create_small_nodes(
 			big_node_type const &parent_node,
 			std::size_t const level,
 			std::vector <std::size_t> &bv_node_pos,
@@ -321,7 +333,7 @@ namespace wtcgn
 			auto const parent_idx(parent_node.node_index());
 			
 			auto const mask_idx(m_sigma_bits - level - 1);
-			t_word const mask(m_small_node_masks[mask_idx]);
+			t_word const mask(m_item_masks[mask_idx]);
 			auto const bit_count(count_set_bits(mask));
 			
 			std::size_t word_idx(0);
@@ -364,8 +376,126 @@ namespace wtcgn
 		}
 		
 		
-		__attribute__((optimize("unroll-loops")))
-		INLINE_CREATION bool create_big_nodes(
+		UNROLL_LOOPS
+		INLINE_CREATION
+		bool create_big_node_for_word(
+			t_word const w,
+			t_word const tau_mask,
+			t_word const tau_rep_mask,
+			t_word zero_limit_mask,
+			t_word const parent_suffix,
+			std::size_t const non_tau,
+			std::size_t const items_per_word,
+			std::size_t const parent_suffix_length,
+			std::size_t const child_character_bits,
+			shortcut_vec_type const &paths,
+			big_node_type const &parent_node,
+			std::vector <big_node_type> &output_nodes
+		) const
+		{
+			bool retval(false);
+			
+			// Separate the first tau bits of each character and the remaining bits.
+			t_word tau_bits(extract_bits(w, tau_rep_mask));
+			t_word remaining_bits(extract_bits(w, ~tau_rep_mask));
+			
+			std::size_t remaining_characters(items_per_word);
+			while (true)
+			{
+				// Get the value of the lowermost tau bits.
+				t_word const first_tau_val(tau_bits & tau_mask);
+				
+				// Get the value repeated.
+				t_word const first_tau_val_rep(m_tau_values[first_tau_val]);
+				
+				// Use a ^ b to set zeros to the matching suffixes of length tau.
+				t_word zero_mask(first_tau_val_rep ^ tau_bits);
+				
+				// Make sure that there are not more zeros than the maximum number of characters.
+				zero_mask |= zero_limit_mask;
+				
+				// Count the matching bits.
+				t_word const zero_count(tzcnt(zero_mask));
+				
+				// Use integer division to count the matching characters.
+				t_word const matching_character_count(zero_count / m_tau);
+				
+				// Determine the number of bits in the characters.
+				t_word const matching_tau_bit_count(matching_character_count * m_tau);
+				t_word const matching_non_tau_bit_count(matching_character_count * non_tau);
+				
+				t_word extract_mask(0);
+				extract_mask = ~extract_mask;
+				extract_mask >>= T_WORD_BIT - matching_non_tau_bit_count;
+				
+				t_word const stored_bits(remaining_bits & extract_mask);
+				
+				// Store the bits.
+				// FIXME: if stored_bits is zero, m_idx in packed_list could be incremented without storing anything.
+				{
+					t_word const child_suffix_part(first_tau_val << parent_suffix_length);
+					t_word const child_suffix(parent_suffix | child_suffix_part);
+					
+					// Get the vector for the child in question.
+					assert(child_suffix < output_nodes.size());
+					auto &child_node(output_nodes[child_suffix]);
+					if (child_node.is_leaf())
+						goto update_remaining_characters;
+					
+					// Check that there is enough space.
+					auto &child_node_characters(child_node.characters());
+					if (0 == child_node_characters.size())
+					{
+						// Child node has not been set up; assign values.
+						auto const child_suffix_length(parent_node.suffix_length() + m_tau);
+				
+						child_node.set_suffix(child_suffix);
+						child_node.set_suffix_length(child_suffix_length);
+				
+						// Count the number of characters in the current node.
+						assert(child_suffix < paths.size());
+						auto const tree_node(paths[child_suffix]);
+						auto const child_character_count(m_wt->m_tree.size(tree_node));
+						//std::cerr << "Child suffix: " << child_suffix << " len: " << child_suffix_length << " tree_node: " << tree_node << " child_character_count: " << child_character_count << std::endl;
+				
+						child_node.set_node_index(tree_node);
+				
+						bool is_leaf(m_wt->m_tree.is_leaf(tree_node));
+						child_node.set_leaf(is_leaf);
+						if (is_leaf)
+							goto update_remaining_characters;
+				
+						// Replace the empty list with an initialized one.
+						typename big_node_type::character_list temp_list(child_character_count, child_character_bits);
+						child_node_characters = std::move(temp_list);
+				
+						retval = true;
+					}
+			
+					//std::cerr << "child suffix: " << child_suffix << " word vector size: " << child_node_characters.word_vector().size() << std::endl;
+					child_node_characters.append(stored_bits, matching_character_count);
+				}
+				
+				if (remaining_characters < matching_character_count)
+					std::cerr << "Error" << std::endl;
+				
+			update_remaining_characters:
+				remaining_characters -= matching_character_count;
+				if (!remaining_characters)
+					break;
+				
+				zero_limit_mask >>= matching_tau_bit_count;
+				tau_bits >>= matching_tau_bit_count;
+				remaining_bits >>= matching_non_tau_bit_count;
+			}
+			
+			return retval;
+		}
+		
+		
+		UNROLL_LOOPS
+		INLINE_CREATION
+		bool create_big_nodes(
 			big_node_type const &parent_node,
 			std::vector <big_node_type> &output_nodes,
 			std::vector <std::size_t> &bv_node_pos,
@@ -374,75 +504,80 @@ namespace wtcgn
 		) const
 		{
 			auto const &characters(parent_node.characters());
+			auto const &words(characters.word_vector());
 			auto const &paths(m_node_paths[alpha - 1]);
 			auto const level(alpha * m_tau);
 			auto const character_bits(characters.item_bits());
+			auto const items_per_word(characters.items_per_word());
+			auto const non_tau(character_bits - m_tau);
 			auto const child_character_bits(character_bits - m_tau);
+			auto const tau_rep_mask(m_tau_masks[alpha - 1]);
+			auto const parent_suffix_length(parent_node.suffix_length());
+			t_word const parent_suffix(parent_node.suffix());
+			
+			t_word zero_limit_mask(0x1);
+			zero_limit_mask <<= m_tau * items_per_word;
+			
 			bool retval(false);
 			
-			for (std::size_t i(0), count(characters.size()); i < count; ++i)
+			t_word tau_mask(0);
+			tau_mask = ~tau_mask;
+			tau_mask >>= T_WORD_BIT - m_tau;
+			
+			auto const count(words.size());
+			if (1 < count)
 			{
-				auto const c(characters.value(i));
-				
-				// Get the last tau bits of the character. (WT has LSB order.)
-				// Child suffix will have the bits in the correct order b.c. the parent's suffix
-				// has the lowest bits.
-				auto const parent_suffix_length(parent_node.suffix_length());
-				t_word const child_idx(c & m_tau_mask);
-				t_word const child_suffix_part(child_idx << parent_suffix_length);
-				t_word const parent_suffix(parent_node.suffix());
-				t_word const child_suffix(parent_suffix | child_suffix_part);
-				
-				// Get the vector for the child in question.
-				assert(child_suffix < output_nodes.size());
-				auto &child_node(output_nodes[child_suffix]);
-				if (child_node.is_leaf())
-					continue;
-				
-				// Check that there is enough space.
-				auto &child_node_characters(child_node.characters());
-				if (0 == child_node_characters.size())
+				for (std::size_t i(0); i < count - 1; ++i)
 				{
-					// Child node has not been set up; assign values.
-					auto const child_suffix_length(parent_node.suffix_length() + m_tau);
-					
-					child_node.set_suffix(child_suffix);
-					child_node.set_suffix_length(child_suffix_length);
-					
-					// Count the number of characters in the current node.
-					assert(child_suffix < paths.size());
-					auto const tree_node(paths[child_suffix]);
-					auto const child_character_count(m_wt->m_tree.size(tree_node));
-					//std::cerr << "Child suffix: " << child_suffix << " len: " << child_suffix_length << " tree_node: " << tree_node << " child_character_count: " << child_character_count << std::endl;
-					
-					child_node.set_node_index(tree_node);
-					
-					bool is_leaf(m_wt->m_tree.is_leaf(tree_node));
-					child_node.set_leaf(is_leaf);
-					if (is_leaf)
-						continue;
-					
-					// Replace the empty list with an initialized one.
-					typename big_node_type::character_list temp_list(child_character_count, child_character_bits);
-					child_node_characters = std::move(temp_list);
-					
-					retval = true;
+					retval |= create_big_node_for_word(
+						words[i],
+						tau_mask,
+						tau_rep_mask,
+						zero_limit_mask,
+						parent_suffix,
+						non_tau,
+						items_per_word,
+						parent_suffix_length,
+						child_character_bits,
+						paths,
+						parent_node,
+						output_nodes
+					);
 				}
 				
-				auto const cc(c >> m_tau);
-				//std::cerr << "child suffix: " << child_suffix << " word vector size: " << child_node_characters.word_vector().size() << std::endl;
-				child_node_characters.append(cc);
+				if (count)
+				{
+					auto const remaining_characters(characters.size() % items_per_word);
+					t_word zero_limit_mask(0x1);
+					zero_limit_mask <<= m_tau * remaining_characters;
+
+					retval |= create_big_node_for_word(
+						words[count - 1],
+						tau_mask,
+						tau_rep_mask,
+						zero_limit_mask,
+						parent_suffix,
+						non_tau,
+						remaining_characters,
+						parent_suffix_length,
+						child_character_bits,
+						paths,
+						parent_node,
+						output_nodes
+					);
+				}
 			}
 			
 			return retval;
 		}
 		
 		
-		// Create a list of words each of which contains as many characters as possible s.t. no characters are split between words
-		// and the characters start from bit index zero (0-based).
+		// Create a list of words each of which contains as many characters as possible s.t.
+		// no characters are split between words and the characters start from bit index zero (0-based).
 		// append() contains a loop that should be unrolled.
-		__attribute__((optimize("unroll-loops")))
-		INLINE_CREATION void create_big_node_initial(
+		UNROLL_LOOPS
+		INLINE_CREATION
+		void create_big_node_initial(
 			sdsl::int_vector_buffer <t_wt::tree_strat_type::int_width> &input_buf,
 			std::size_t const input_size,
 			big_node_type &output_node,
@@ -462,7 +597,7 @@ namespace wtcgn
 			
 			// Level zero.
 			auto const mask_idx(m_sigma_bits - 1);
-			t_word const mask(m_small_node_masks[mask_idx]);
+			t_word const mask(m_item_masks[mask_idx]);
 			auto const bit_count(count_set_bits(mask));
 			
 			//std::cerr << "Input size: " << input_size << std::endl;
@@ -563,12 +698,6 @@ namespace wtcgn
 			m_sigma_bits = gte_exp_base_2(m_wt->m_sigma);
 			assert(m_sigma_bits);
 			
-			// Create bit masks for accessing the first bits of characters.
-			{
-				decltype(m_small_node_masks) temp_masks(m_sigma_bits);
-				m_small_node_masks = std::move(temp_masks);
-			}
-			
 			// Node index stack.
 			node idx_buf[level_nodes];
 			array <node> node_stack(idx_buf, level_nodes);
@@ -584,6 +713,16 @@ namespace wtcgn
 			std::cerr << "Lowest tree level: " << lowest_tree_level << std::endl;
 			std::cerr << "Lowest big node level: " << lowest_big_node_level << std::endl;
 			
+			// Create bit masks for accessing the first bits of characters.
+			create_masks_type::create_item_masks(m_sigma_bits, m_item_masks);
+			
+			// Create bit masks for accessing the first tau bits of each character.
+			create_masks_type::create_tau_masks(lowest_tree_level, m_tau, m_item_masks, m_tau_masks);
+			
+			// Create a vector with all possible values of tau repeated.
+			if (m_tau <= lowest_tree_level)
+				create_masks_type::create_tau_values(m_tau, m_item_masks, m_tau_values);
+			
 			// Shortcuts for m_wt->m_tree.m_nodes.
 			auto const nonzero_big_node_levels(lowest_tree_level / m_tau);
 			if (nonzero_big_node_levels)
@@ -597,7 +736,7 @@ namespace wtcgn
 				construct_shortcut_level(0, level_count, initial_item_count, initial_item_count, initial_suffix);
 			}
 			
-#if 0
+#if 1
 			{
 				std::size_t i(0);
 				for (auto const &v : m_node_paths)
@@ -665,8 +804,8 @@ namespace wtcgn
 				auto fn = [delegate](){
 					delegate->finish_construction();
 				};
-				//dispatch_async_fn(dispatch_get_main_queue(), std::move(fn));
-				fn();
+				dispatch_async_fn(dispatch_get_main_queue(), std::move(fn));
+				//fn();
 			}
 		}
 		
