@@ -72,17 +72,14 @@ namespace wtcgn {
 			// Create a mask with bits set for tau.
 			t_word initial_mask(0);
 			initial_mask = ~initial_mask;
-			initial_mask >>= T_WORD_BIT - item_bits + tau;
+			initial_mask >>= T_WORD_BIT - tau;
 			
 			std::size_t j(0);
-			while (item_bits)
+			while (tau <= item_bits)
 			{
 				t_word const factor(item_masks[item_bits - 1]);
 				t_word const mask(factor * initial_mask);
 				temp_vec[j] = mask;
-				
-				if (item_bits < tau)
-					break;
 				
 				++j;
 				item_bits -= tau;
