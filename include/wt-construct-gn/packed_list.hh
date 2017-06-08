@@ -24,44 +24,6 @@
 
 namespace wtcgn {
 	
-	// Create bit masks to access the first bit of each character in a word.
-	template <typename t_word>
-	class item_masks
-	{
-	public:
-		enum { T_WORD_BIT = CHAR_BIT * sizeof(t_word) };
-	
-	protected:
-		sdsl::int_vector <T_WORD_BIT>	m_masks;
-	
-	public:
-		std::size_t size() const { return m_masks.size(); }
-	
-		item_masks() = default;
-		
-		item_masks(std::size_t count):
-			m_masks(count, 0)
-		{
-			for (std::size_t i(0); i < count; ++i)
-			{
-				t_word const initial_mask(0x1);
-				t_word mask(0);
-			
-				for (std::size_t j(0), shift_count(T_WORD_BIT / (1 + i)); j < shift_count; ++j)
-				{
-					mask <<= 1 + i;
-					mask |= initial_mask;
-				}
-			
-				//mask <<= (T_WORD_BIT % (1 + i));
-				m_masks[i] = mask;
-			}
-		}
-	
-		t_word operator[](std::size_t const i) const { return m_masks[i]; }
-	};
-	
-	
 	// Pack as many whole items of given size into each t_word.
 	template <typename t_word>
 	class packed_list
@@ -100,6 +62,9 @@ namespace wtcgn {
 		// Number of bits per item.
 		std::size_t item_bits() const { return m_item_bits; }
 		
+		// Number of items per word.
+		std::size_t items_per_word() const { return m_items_per_word; }
+		
 		// Reserve space for item_count items.
 		void reserve(std::size_t const item_count)
 		{
@@ -109,7 +74,7 @@ namespace wtcgn {
 		}
 	
 		// Append a value to the list.
-		inline bool append(t_word const val)
+		inline void append(t_word const val, std::size_t const count = 1)
 		{
 			auto const vec_idx(m_idx / m_items_per_word);
 		
@@ -121,16 +86,22 @@ namespace wtcgn {
 			}
 			
 			auto &ref(m_vec[vec_idx]);
-			auto const shift_amt(m_item_bits * (m_idx % m_items_per_word));	// XXX remainder operation may be slow. Restricting to powers of two could be better.
+			auto const shift_count(m_idx % m_items_per_word);	// XXX remainder operation may be slow. Restricting to powers of two could be better.
+			auto const shift_amt(m_item_bits * shift_count);
 			auto const shifted_val(val << shift_amt);
 			ref |= shifted_val;
 		
-			++m_idx;
-			
-			// Check if a word was filled.
-			return (m_idx / m_items_per_word != vec_idx);
+			auto const diff(m_items_per_word - shift_count);
+			if (count <= diff)
+				m_idx += count;
+			else
+			{
+				m_idx += diff;
+				t_word const new_val(val >> (m_item_bits * diff));
+				append(new_val, count - diff);
+			}
 		}
-	
+		
 		inline t_word value(std::size_t idx) const
 		{
 			auto const vec_idx(idx / m_items_per_word);
