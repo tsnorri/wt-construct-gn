@@ -39,7 +39,8 @@ namespace wtcgn {
 		sdsl::bit_vector::rank_1_type,
 		sdsl::bit_vector::select_1_type,
 		sdsl::bit_vector::select_0_type,
-		sdsl::byte_tree <>
+		//sdsl::byte_tree <>
+		sdsl::int_tree <>
 	> wt_type_sdsl;
 	
 	
@@ -49,7 +50,8 @@ namespace wtcgn {
 		sdsl::bit_vector::rank_1_type,
 		sdsl::bit_vector::select_1_type,
 		sdsl::bit_vector::select_0_type,
-		sdsl::byte_tree <>,
+		//sdsl::byte_tree <>,
+		sdsl::int_tree <>,
 		construct_type_tpl <false>::type
 	> wt_type_gn;
 	
@@ -60,7 +62,8 @@ namespace wtcgn {
 		sdsl::bit_vector::rank_1_type,
 		sdsl::bit_vector::select_1_type,
 		sdsl::bit_vector::select_0_type,
-		sdsl::byte_tree <>,
+		//sdsl::byte_tree <>,
+		sdsl::int_tree <>,
 		construct_type_tpl <true>::type
 	> wt_type_gn_mt;
 }
