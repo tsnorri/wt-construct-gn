@@ -67,7 +67,7 @@ namespace wtcgn {
 			vector_type /* out */ &vec
 		)
 		{
-			vector_type temp_vec(item_bits / tau - 1, 0);
+			vector_type temp_vec(item_bits / tau, 0);
 			
 			// Create a mask with bits set for tau.
 			t_word initial_mask(0);
