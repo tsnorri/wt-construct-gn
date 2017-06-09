@@ -244,10 +244,11 @@ namespace wtcgn {
 			return 1;
 		
 		// If the value has only one bit set, it is a power of two.
-		t_type p1(lzcnt(val));
-		t_type p2(tzcnt(val));
-		if (p1 == CHAR_BIT * sizeof(val) - p2 - 1)
-			return p1;
+		t_type const p1(lzcnt(val));
+		t_type const p2(tzcnt(val));
+		t_type const conv(CHAR_BIT * sizeof(val) - p2 - 1);
+		if (p1 == conv)
+			return p2;
 		
 		return CHAR_BIT * sizeof(val) - p1;
 	}
