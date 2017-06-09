@@ -1,2 +1,5 @@
 .DS_Store
 *.o
+src/cmdline.c
+src/cmdline.h
+src/construct-wt
