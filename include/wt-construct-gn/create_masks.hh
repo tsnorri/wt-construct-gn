@@ -67,7 +67,8 @@ namespace wtcgn {
 			vector_type /* out */ &vec
 		)
 		{
-			vector_type temp_vec(item_bits / tau, 0);
+			auto const count(item_bits / tau);
+			vector_type temp_vec(count, 0);
 			
 			// Create a mask with bits set for tau.
 			t_word initial_mask(0);
