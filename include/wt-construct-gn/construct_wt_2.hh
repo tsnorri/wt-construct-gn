@@ -716,8 +716,13 @@ namespace wtcgn
 			std::cerr << "Lowest tree level: " << lowest_tree_level << std::endl;
 			std::cerr << "Lowest big node level: " << lowest_big_node_level << std::endl;
 			
+			uint32_t max_bits(lowest_big_node_level);
+			if (lowest_big_node_level < m_sigma_bits)
+				max_bits = m_sigma_bits;
+			max_bits = 1 << gte_exp_base_2(max_bits);
+
 			// Create bit masks for accessing the first bits of characters.
-			create_masks_type::create_item_masks(m_sigma_bits, m_item_masks);
+			create_masks_type::create_item_masks(max_bits, m_item_masks);
 			
 			// Create bit masks for accessing the first tau bits of each character.
 			create_masks_type::create_tau_masks(lowest_tree_level, m_tau, m_item_masks, m_tau_masks);
