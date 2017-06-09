@@ -15,14 +15,15 @@ version "0.1"
 purpose "Construct a balanced Wavelet tree"
 usage "construct-wt -i input [ … ]"
 
-defgroup "Construction Algorithm" groupdesc = "Wavelet tree construction algorithm"													required
+defgroup "Construction Algorithm" groupdesc = "Wavelet tree construction algorithm"														required
 groupoption	"sdsl"			S	"Use the default algorithm from SDSL"							group = "Construction Algorithm"
 groupoption	"bitparallel"	B	"Use a multithreaded bitparallel algorithm"						group = "Construction Algorithm"
 
 section " Other options"
-option		"input-file"	i	"Input file"											string	typestr = "filename"				required
-option		"print-wt"		p	"Output the text from the Wavelet tree to stdout"		flag													off
-option		"output-file"	o	"Write the resulting Wavelet tree to the given file"	string	typestr = "filename"				optional
-option		"tau"			-	"Specify τ for use in the bitparallel algorithm"		int		dependon = "bitparallel"			optional
-option		"no-mt"			-	"Use only one thread in the bitparallel algorithm"				dependon = "bitparallel"			optional	hidden
-option		"sleep"			-	"Wait before running the main program"					int		typestr = "seconds"					optional
+option		"input-file"	i	"Input file"											string	typestr = "filename"					required
+option		"input-width"	w	"Input width in bits"											values = "8", "16", "32", "64"	enum	optional	default = "8"
+option		"print-wt"		p	"Output the text from the Wavelet tree to stdout"		flag														off
+option		"output-file"	o	"Write the resulting Wavelet tree to the given file"	string	typestr = "filename"					optional
+option		"tau"			-	"Specify τ for use in the bitparallel algorithm"		int		dependon = "bitparallel"				optional
+option		"no-mt"			-	"Use only one thread in the bitparallel algorithm"				dependon = "bitparallel"				optional	hidden
+option		"sleep"			-	"Wait before running the main program"					int		typestr = "seconds"						optional

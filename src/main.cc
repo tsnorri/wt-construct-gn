@@ -52,6 +52,7 @@ namespace {
 		virtual ~construct_ctx_base() {}
 		virtual void construct() = 0;
 		virtual void set_input_file_name(char const *fname) = 0;
+		virtual void set_input_width(uint8_t const width) = 0;
 		virtual void open_output_file(char const *fname) = 0;
 		virtual wtcgn::timer &wt_construction_timer() = 0;
 		virtual void set_tau(std::size_t const tau) = 0;
@@ -70,6 +71,7 @@ namespace {
 		std::string				m_input_file_name;
 		wtcgn::file_ostream		m_output_stream;
 		std::size_t				m_tau{0};
+		uint8_t					m_input_width{0};
 		bool					m_output_wt{false};
 		bool					m_print_wt{false};
 		
@@ -97,7 +99,13 @@ namespace {
 		{
 			m_input_file_name = fname;
 		}
+
 		
+		virtual void set_input_width(uint8_t const width)
+		{
+			m_input_width = width;
+		}
+
 		
 		virtual void open_output_file(char const *fname)
 		{
@@ -109,7 +117,8 @@ namespace {
 		virtual void construct()
 		{
 			sdsl::int_vector_buffer <t_wt::alphabet_category::WIDTH>
-			text_buf(m_input_file_name, std::ios::in, 1024 * 1024, t_wt::alphabet_category::WIDTH, true);
+			//text_buf(m_input_file_name, std::ios::in, 1024 * 1024, t_wt::alphabet_category::WIDTH, true);
+			text_buf(m_input_file_name, std::ios::in, 1024 * 1024, m_input_width, true);
 
 			m_wt.reset(new t_wt(text_buf, text_buf.size(), this));
 		}
@@ -129,8 +138,17 @@ namespace {
 			
 			if (m_print_wt)
 			{
-				for (std::size_t i(0); i < m_wt->size(); ++i)
-					std::cout << (*m_wt)[i];
+				std::cerr << "WT size: " << m_wt->size() << std::endl;
+				if (8 == m_input_width)
+				{
+					for (std::size_t i(0); i < m_wt->size(); ++i)
+						std::cout << (char)((*m_wt)[i]);
+				}
+				else
+				{
+					for (std::size_t i(0); i < m_wt->size(); ++i)
+						std::cout << (*m_wt)[i];
+				}
 				std::cout << std::endl;
 			}
 			
@@ -161,6 +179,31 @@ int main (int argc, char **argv)
 		sleep(args_info.sleep_arg);
 	}
 	
+	uint8_t input_width(0);
+	{
+		switch (args_info.input_width_arg)
+		{
+			case input_width_arg_8:
+				input_width = 8;
+				break;
+
+			case input_width_arg_16:
+				input_width = 16;
+				break;
+
+			case input_width_arg_32:
+				input_width = 32;
+				break;
+
+			case input_width_arg_64:
+				input_width = 64;
+				break;
+				
+			default:
+				abort();
+		}
+	}
+	
 	if (args_info.sdsl_given)
 	{
 		wtcgn::timer timer;
@@ -170,7 +213,8 @@ int main (int argc, char **argv)
 			wtcgn::open_file_for_writing(args_info.output_file_arg, output_stream, false);
 		
 		sdsl::int_vector_buffer <wtcgn::wt_type_sdsl::alphabet_category::WIDTH>
-		text_buf(args_info.input_file_arg, std::ios::in, 1024 * 1024, wtcgn::wt_type_sdsl::alphabet_category::WIDTH, true);
+		//text_buf(args_info.input_file_arg, std::ios::in, 1024 * 1024, wtcgn::wt_type_sdsl::alphabet_category::WIDTH, true);
+		text_buf(args_info.input_file_arg, std::ios::in, 1024 * 1024, input_width, true);
 
 		std::cerr << "Constructing the Wavelet tree…" << std::endl;
 		wtcgn::wt_type_sdsl wt(text_buf, text_buf.size());
@@ -184,26 +228,6 @@ int main (int argc, char **argv)
 	}
 	else if (args_info.bitparallel_given)
 	{
-		{
-			construct_ctx <wtcgn::wt_type_gn> ctx;
-			ctx.set_input_file_name(args_info.input_file_arg);
-			if (args_info.tau_given)
-			{
-				auto const tau(args_info.tau_arg);
-				if (! (0 < tau))
-				{
-					std::cerr << "Tau must be positive." << std::endl;
-					exit(EXIT_FAILURE);
-				}
-				ctx.set_tau(tau);
-				if (args_info.print_wt_given)
-					ctx.set_print_wt(true);
-				
-				ctx.construct();
-				return 0;
-			}
-		}
-		
 		construct_ctx_base *ctx{nullptr};
 		
 		if (true || args_info.no_mt_given)
@@ -222,6 +246,8 @@ int main (int argc, char **argv)
 		ctx->set_input_file_name(args_info.input_file_arg);
 		if (args_info.output_file_given)
 			ctx->open_output_file(args_info.output_file_arg);
+		
+		ctx->set_input_width(input_width);
 		
 		if (args_info.tau_given)
 		{
