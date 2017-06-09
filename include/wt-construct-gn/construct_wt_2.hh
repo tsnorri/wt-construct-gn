@@ -504,6 +504,9 @@ namespace wtcgn
 		) const
 		{
 			auto const &characters(parent_node.characters());
+			if (!characters.size())
+				return false;
+
 			auto const &words(characters.word_vector());
 			auto const &paths(m_node_paths[alpha - 1]);
 			auto const level(alpha * m_tau);
